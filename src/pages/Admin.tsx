@@ -9,31 +9,151 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 const Admin = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
   const [isAddGameOpen, setIsAddGameOpen] = useState(false);
   const [newGame, setNewGame] = useState({
     title: '',
     price: '',
     category: '',
     description: '',
-    image: ''
+    image_url: ''
   });
 
-  // Mock data para o admin
-  const adminStats = {
-    totalGames: 25,
-    totalUsers: 1250,
-    totalComments: 850,
-    totalRatings: 650
-  };
+  if (!user) {
+    navigate('/auth');
+    return null;
+  }
 
-  const games = [
-    { id: 1, title: 'Cyberpunk 2077', price: 59.99, category: 'RPG', status: 'Ativo' },
-    { id: 2, title: 'The Witcher 3', price: 39.99, category: 'RPG', status: 'Ativo' },
-    { id: 3, title: 'Counter-Strike 2', price: 0, category: 'FPS', status: 'Ativo' }
-  ];
+  // Check if user is admin
+  const { data: userRole } = useQuery({
+    queryKey: ['userRole', user.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  if (userRole === null) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl text-white mb-4">Acesso Negado</h1>
+          <p className="text-gray-300 mb-4">Você precisa ser administrador para acessar esta página.</p>
+          <Button onClick={() => navigate('/')} className="bg-gradient-to-r from-purple-600 to-blue-600">
+            Voltar ao Início
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Fetch games
+  const { data: games = [] } = useQuery({
+    queryKey: ['adminGames'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('games')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  // Fetch admin stats
+  const { data: adminStats } = useQuery({
+    queryKey: ['adminStats'],
+    queryFn: async () => {
+      const [gamesCount, usersCount, commentsCount, ratingsCount] = await Promise.all([
+        supabase.from('games').select('id', { count: 'exact', head: true }),
+        supabase.from('profiles').select('id', { count: 'exact', head: true }),
+        supabase.from('comments').select('id', { count: 'exact', head: true }),
+        supabase.from('ratings').select('id', { count: 'exact', head: true })
+      ]);
+
+      return {
+        totalGames: gamesCount.count || 0,
+        totalUsers: usersCount.count || 0,
+        totalComments: commentsCount.count || 0,
+        totalRatings: ratingsCount.count || 0
+      };
+    }
+  });
+
+  // Add game mutation
+  const addGameMutation = useMutation({
+    mutationFn: async (gameData: typeof newGame) => {
+      const { data, error } = await supabase
+        .from('games')
+        .insert({
+          title: gameData.title,
+          description: gameData.description,
+          price: parseFloat(gameData.price) || 0,
+          category: gameData.category,
+          image_url: gameData.image_url || null
+        });
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminGames'] });
+      queryClient.invalidateQueries({ queryKey: ['games'] });
+      queryClient.invalidateQueries({ queryKey: ['adminStats'] });
+      setNewGame({ title: '', price: '', category: '', description: '', image_url: '' });
+      setIsAddGameOpen(false);
+      toast({
+        title: "Sucesso!",
+        description: `Jogo "${newGame.title}" adicionado com sucesso!`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível adicionar o jogo.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Delete game mutation
+  const deleteGameMutation = useMutation({
+    mutationFn: async (gameId: string) => {
+      const { error } = await supabase
+        .from('games')
+        .delete()
+        .eq('id', gameId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminGames'] });
+      queryClient.invalidateQueries({ queryKey: ['games'] });
+      queryClient.invalidateQueries({ queryKey: ['adminStats'] });
+      toast({
+        title: "Jogo Removido",
+        description: "O jogo foi removido do sistema.",
+      });
+    }
+  });
 
   const handleAddGame = () => {
     if (!newGame.title || !newGame.category) {
@@ -45,20 +165,13 @@ const Admin = () => {
       return;
     }
 
-    toast({
-      title: "Sucesso!",
-      description: `Jogo "${newGame.title}" adicionado com sucesso!`,
-    });
-
-    setNewGame({ title: '', price: '', category: '', description: '', image: '' });
-    setIsAddGameOpen(false);
+    addGameMutation.mutate(newGame);
   };
 
-  const handleDeleteGame = (gameTitle: string) => {
-    toast({
-      title: "Jogo Removido",
-      description: `"${gameTitle}" foi removido do sistema.`,
-    });
+  const handleDeleteGame = (gameId: string, gameTitle: string) => {
+    if (confirm(`Tem certeza que deseja excluir "${gameTitle}"?`)) {
+      deleteGameMutation.mutate(gameId);
+    }
   };
 
   return (
@@ -75,55 +188,57 @@ const Admin = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-gradient-to-br from-blue-600/20 to-blue-800/20 border-blue-500/30">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-300">
-                Total de Jogos
-              </CardTitle>
-              <Gamepad2 className="h-4 w-4 text-blue-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-white">{adminStats.totalGames}</div>
-            </CardContent>
-          </Card>
+        {adminStats && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <Card className="bg-gradient-to-br from-blue-600/20 to-blue-800/20 border-blue-500/30">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-300">
+                  Total de Jogos
+                </CardTitle>
+                <Gamepad2 className="h-4 w-4 text-blue-400" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-white">{adminStats.totalGames}</div>
+              </CardContent>
+            </Card>
 
-          <Card className="bg-gradient-to-br from-green-600/20 to-green-800/20 border-green-500/30">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-300">
-                Total de Usuários
-              </CardTitle>
-              <Users className="h-4 w-4 text-green-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-white">{adminStats.totalUsers}</div>
-            </CardContent>
-          </Card>
+            <Card className="bg-gradient-to-br from-green-600/20 to-green-800/20 border-green-500/30">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-300">
+                  Total de Usuários
+                </CardTitle>
+                <Users className="h-4 w-4 text-green-400" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-white">{adminStats.totalUsers}</div>
+              </CardContent>
+            </Card>
 
-          <Card className="bg-gradient-to-br from-purple-600/20 to-purple-800/20 border-purple-500/30">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-300">
-                Total de Comentários
-              </CardTitle>
-              <BarChart3 className="h-4 w-4 text-purple-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-white">{adminStats.totalComments}</div>
-            </CardContent>
-          </Card>
+            <Card className="bg-gradient-to-br from-purple-600/20 to-purple-800/20 border-purple-500/30">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-300">
+                  Total de Comentários
+                </CardTitle>
+                <BarChart3 className="h-4 w-4 text-purple-400" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-white">{adminStats.totalComments}</div>
+              </CardContent>
+            </Card>
 
-          <Card className="bg-gradient-to-br from-orange-600/20 to-orange-800/20 border-orange-500/30">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-300">
-                Total de Avaliações
-              </CardTitle>
-              <BarChart3 className="h-4 w-4 text-orange-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-white">{adminStats.totalRatings}</div>
-            </CardContent>
-          </Card>
-        </div>
+            <Card className="bg-gradient-to-br from-orange-600/20 to-orange-800/20 border-orange-500/30">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-300">
+                  Total de Avaliações
+                </CardTitle>
+                <BarChart3 className="h-4 w-4 text-orange-400" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-white">{adminStats.totalRatings}</div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Games Management */}
         <Card className="bg-gray-800/50 border-gray-700">
@@ -197,14 +312,18 @@ const Admin = () => {
                       <Label htmlFor="image">URL da Imagem</Label>
                       <Input
                         id="image"
-                        value={newGame.image}
-                        onChange={(e) => setNewGame({...newGame, image: e.target.value})}
+                        value={newGame.image_url}
+                        onChange={(e) => setNewGame({...newGame, image_url: e.target.value})}
                         className="bg-gray-700 border-gray-600"
                       />
                     </div>
                     
-                    <Button onClick={handleAddGame} className="w-full bg-gradient-to-r from-purple-600 to-blue-600">
-                      Adicionar Jogo
+                    <Button 
+                      onClick={handleAddGame} 
+                      disabled={addGameMutation.isPending}
+                      className="w-full bg-gradient-to-r from-purple-600 to-blue-600"
+                    >
+                      {addGameMutation.isPending ? 'Adicionando...' : 'Adicionar Jogo'}
                     </Button>
                   </div>
                 </DialogContent>
@@ -220,7 +339,7 @@ const Admin = () => {
                     <th className="text-left p-2">Título</th>
                     <th className="text-left p-2">Preço</th>
                     <th className="text-left p-2">Categoria</th>
-                    <th className="text-left p-2">Status</th>
+                    <th className="text-left p-2">Criado em</th>
                     <th className="text-left p-2">Ações</th>
                   </tr>
                 </thead>
@@ -233,9 +352,7 @@ const Admin = () => {
                       </td>
                       <td className="p-2">{game.category}</td>
                       <td className="p-2">
-                        <span className="bg-green-600/20 text-green-400 px-2 py-1 rounded text-sm">
-                          {game.status}
-                        </span>
+                        {new Date(game.created_at).toLocaleDateString('pt-BR')}
                       </td>
                       <td className="p-2">
                         <div className="flex gap-2">
@@ -246,7 +363,8 @@ const Admin = () => {
                             size="sm" 
                             variant="outline" 
                             className="border-red-600 text-red-400 hover:bg-red-600"
-                            onClick={() => handleDeleteGame(game.title)}
+                            onClick={() => handleDeleteGame(game.id, game.title)}
+                            disabled={deleteGameMutation.isPending}
                           >
                             <Trash2 className="w-3 h-3" />
                           </Button>

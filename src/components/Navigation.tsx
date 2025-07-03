@@ -1,21 +1,30 @@
 
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Gamepad2, Home, User, Settings, Menu, X } from 'lucide-react';
+import { Gamepad2, Home, User, Settings, Menu, X, LogOut, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
 
 const Navigation = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const { user, signOut } = useAuth();
 
   const navItems = [
     { path: '/', label: 'Início', icon: Home },
     { path: '/games', label: 'Jogos', icon: Gamepad2 },
-    { path: '/dashboard', label: 'Dashboard', icon: User },
-    { path: '/admin', label: 'Admin', icon: Settings }
+    ...(user ? [
+      { path: '/dashboard', label: 'Dashboard', icon: User },
+      { path: '/admin', label: 'Admin', icon: Settings }
+    ] : [])
   ];
 
   const isActive = (path: string) => location.pathname === path;
+
+  const handleSignOut = async () => {
+    await signOut();
+    setIsMobileMenuOpen(false);
+  };
 
   return (
     <nav className="bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 sticky top-0 z-50">
@@ -46,6 +55,28 @@ const Navigation = () => {
                 </Button>
               </Link>
             ))}
+            
+            {/* Auth Button */}
+            {user ? (
+              <Button
+                variant="ghost"
+                onClick={handleSignOut}
+                className="flex items-center space-x-2 text-gray-300 hover:text-white hover:bg-gray-800"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Sair</span>
+              </Button>
+            ) : (
+              <Link to="/auth">
+                <Button
+                  variant="ghost"
+                  className="flex items-center space-x-2 text-gray-300 hover:text-white hover:bg-gray-800"
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span>Entrar</span>
+                </Button>
+              </Link>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -78,6 +109,28 @@ const Navigation = () => {
                   </Button>
                 </Link>
               ))}
+              
+              {/* Mobile Auth Button */}
+              {user ? (
+                <Button
+                  variant="ghost"
+                  onClick={handleSignOut}
+                  className="w-full justify-start flex items-center space-x-2 text-gray-300 hover:text-white hover:bg-gray-800"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Sair</span>
+                </Button>
+              ) : (
+                <Link to="/auth" onClick={() => setIsMobileMenuOpen(false)}>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start flex items-center space-x-2 text-gray-300 hover:text-white hover:bg-gray-800"
+                  >
+                    <LogIn className="w-4 h-4" />
+                    <span>Entrar</span>
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
         )}

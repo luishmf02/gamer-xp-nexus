@@ -1,53 +1,87 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Filter, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import GameCard from '@/components/GameCard';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
+
+interface Game {
+  id: string;
+  title: string;
+  price: number;
+  category: string;
+  image_url?: string;
+  description?: string;
+  rating?: number;
+  rating_count?: number;
+}
 
 const Games = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
 
-  // Mock data para demonstração
-  const games = [
-    {
-      id: 1,
-      title: 'Cyberpunk 2077',
-      price: 59.99,
-      rating: 4.2,
-      category: 'RPG',
-      image: '/placeholder.svg',
-      description: 'Um RPG de ação futurístico em mundo aberto'
-    },
-    {
-      id: 2,
-      title: 'The Witcher 3',
-      price: 39.99,
-      rating: 4.8,
-      category: 'RPG',
-      image: '/placeholder.svg',
-      description: 'RPG épico de fantasia medieval'
-    },
-    {
-      id: 3,
-      title: 'Counter-Strike 2',
-      price: 0,
-      rating: 4.5,
-      category: 'FPS',
-      image: '/placeholder.svg',
-      description: 'O FPS competitivo mais popular do mundo'
+  const { data: games = [], isLoading, error } = useQuery({
+    queryKey: ['games'],
+    queryFn: async () => {
+      console.log('Fetching games...');
+      const { data, error } = await supabase
+        .from('games')
+        .select('*');
+      
+      if (error) {
+        console.error('Error fetching games:', error);
+        throw error;
+      }
+
+      console.log('Games fetched:', data);
+      
+      // Get ratings for each game
+      const gamesWithRatings = await Promise.all(
+        data.map(async (game) => {
+          const { data: avgRating } = await supabase
+            .rpc('get_game_rating', { game_uuid: game.id });
+          
+          const { data: ratingCount } = await supabase
+            .rpc('get_game_rating_count', { game_uuid: game.id });
+
+          return {
+            ...game,
+            rating: avgRating || 0,
+            rating_count: ratingCount || 0
+          };
+        })
+      );
+
+      return gamesWithRatings;
     }
-  ];
+  });
 
   const categories = ['all', 'RPG', 'FPS', 'Strategy', 'Sports', 'Racing'];
 
-  const filteredGames = games.filter(game => {
+  const filteredGames = games.filter((game: Game) => {
     const matchesSearch = game.title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || game.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-white text-xl">Carregando jogos...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-red-400 text-xl">Erro ao carregar jogos</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
@@ -93,7 +127,7 @@ const Games = () => {
         {/* Games Grid */}
         {filteredGames.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredGames.map(game => (
+            {filteredGames.map((game: Game) => (
               <GameCard key={game.id} game={game} />
             ))}
           </div>
