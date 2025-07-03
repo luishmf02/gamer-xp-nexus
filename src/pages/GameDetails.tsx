@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Star, MessageCircle, ArrowLeft, Send } from 'lucide-react';
@@ -62,24 +61,44 @@ const GameDetails = () => {
     }
   });
 
-  // Fetch comments with proper join
+  // Fetch comments with manual join
   const { data: comments = [] } = useQuery({
     queryKey: ['comments', id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // First get comments
+      const { data: commentsData, error: commentsError } = await supabase
         .from('comments')
-        .select(`
-          id,
-          content,
-          created_at,
-          user_id,
-          profiles!inner(username, email)
-        `)
+        .select('id, content, created_at, user_id')
         .eq('game_id', id)
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
-      return data as Comment[];
+      if (commentsError) throw commentsError;
+      
+      if (!commentsData || commentsData.length === 0) {
+        return [];
+      }
+
+      // Get unique user IDs
+      const userIds = [...new Set(commentsData.map(comment => comment.user_id))];
+      
+      // Get profiles for those users
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, username, email')
+        .in('id', userIds);
+      
+      if (profilesError) throw profilesError;
+      
+      // Create a map of user_id to profile
+      const profilesMap = new Map(
+        (profilesData || []).map(profile => [profile.id, profile])
+      );
+      
+      // Combine comments with profiles
+      return commentsData.map(comment => ({
+        ...comment,
+        profiles: profilesMap.get(comment.user_id) || null
+      }));
     }
   });
 
