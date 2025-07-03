@@ -23,10 +23,11 @@ interface Comment {
   id: string;
   content: string;
   created_at: string;
+  user_id: string;
   profiles: {
     username: string;
     email: string;
-  };
+  } | null;
 }
 
 interface Rating {
@@ -61,7 +62,7 @@ const GameDetails = () => {
     }
   });
 
-  // Fetch comments
+  // Fetch comments with proper join
   const { data: comments = [] } = useQuery({
     queryKey: ['comments', id],
     queryFn: async () => {
@@ -71,13 +72,14 @@ const GameDetails = () => {
           id,
           content,
           created_at,
-          profiles (username, email)
+          user_id,
+          profiles!inner(username, email)
         `)
         .eq('game_id', id)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data;
+      return data as Comment[];
     }
   });
 
@@ -345,7 +347,7 @@ const GameDetails = () => {
                     <div key={comment.id} className="bg-gray-700/50 p-4 rounded-lg">
                       <div className="flex justify-between items-start mb-2">
                         <span className="text-purple-400 font-medium">
-                          {comment.profiles?.username || comment.profiles?.email}
+                          {comment.profiles?.username || comment.profiles?.email || 'Usuário'}
                         </span>
                         <span className="text-gray-400 text-sm">
                           {new Date(comment.created_at).toLocaleDateString('pt-BR')}
