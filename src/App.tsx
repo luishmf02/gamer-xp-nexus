@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import Navigation from "./components/Navigation";
+import ProtectedAdminRoute from "./components/ProtectedAdminRoute";
 import Index from "./pages/Index";
 import Games from "./pages/Games";
 import Dashboard from "./pages/Dashboard";
@@ -31,8 +32,16 @@ const App = () => (
               <Route path="/games" element={<Games />} />
               <Route path="/games/:id" element={<GameDetails />} />
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/admin" element={<Admin />} />
-              <Route path="/admin/interactions" element={<AdminInteractions />} />
+              <Route path="/admin" element={
+                <ProtectedAdminRoute>
+                  <Admin />
+                </ProtectedAdminRoute>
+              } />
+              <Route path="/admin/interactions" element={
+                <ProtectedAdminRoute>
+                  <AdminInteractions />
+                </ProtectedAdminRoute>
+              } />
               <Route path="/auth" element={<Auth />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

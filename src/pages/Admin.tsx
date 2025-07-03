@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Plus, Edit, Trash2, BarChart3, Users, Gamepad2, MessageCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,14 +9,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import AdminChart from '@/components/AdminChart';
 
 const Admin = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -28,41 +27,6 @@ const Admin = () => {
     description: '',
     image_url: ''
   });
-
-  if (!user) {
-    navigate('/auth');
-    return null;
-  }
-
-  // Check if user is admin
-  const { data: userRole } = useQuery({
-    queryKey: ['userRole', user.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .eq('role', 'admin')
-        .maybeSingle();
-      
-      if (error) throw error;
-      return data;
-    }
-  });
-
-  if (userRole === null) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-indigo-900 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl text-white mb-4">Acesso Negado</h1>
-          <p className="text-gray-300 mb-4">Você precisa ser administrador para acessar esta página.</p>
-          <Button onClick={() => navigate('/')} className="bg-gradient-to-r from-purple-600 to-blue-600">
-            Voltar ao Início
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   // Fetch games
   const { data: games = [] } = useQuery({
@@ -180,9 +144,14 @@ const Admin = () => {
         {/* Header with Navigation */}
         <div className="mb-8">
           <div className="flex justify-between items-center mb-4">
-            <h1 className="text-4xl font-bold text-white">
-              Painel Administrativo
-            </h1>
+            <div>
+              <h1 className="text-4xl font-bold text-white">
+                Painel Administrativo
+              </h1>
+              <p className="text-gray-300 mt-2">
+                Área restrita para administradores do sistema
+              </p>
+            </div>
             <Button
               onClick={() => navigate('/admin/interactions')}
               className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"

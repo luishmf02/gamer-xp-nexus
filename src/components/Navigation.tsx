@@ -4,20 +4,28 @@ import { Link, useLocation } from 'react-router-dom';
 import { Gamepad2, Home, User, Settings, Menu, X, LogOut, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+import { useAdminCheck } from '@/hooks/useAdminCheck';
 
 const Navigation = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const { user, signOut } = useAuth();
+  const { isAdmin } = useAdminCheck();
 
-  const navItems = [
+  const baseNavItems = [
     { path: '/', label: 'Início', icon: Home },
     { path: '/games', label: 'Jogos', icon: Gamepad2 },
-    ...(user ? [
-      { path: '/dashboard', label: 'Dashboard', icon: User },
-      { path: '/admin', label: 'Admin', icon: Settings }
-    ] : [])
   ];
+
+  const userNavItems = user ? [
+    { path: '/dashboard', label: 'Dashboard', icon: User }
+  ] : [];
+
+  const adminNavItems = (user && isAdmin) ? [
+    { path: '/admin', label: 'Admin', icon: Settings }
+  ] : [];
+
+  const navItems = [...baseNavItems, ...userNavItems, ...adminNavItems];
 
   const isActive = (path: string) => location.pathname === path;
 

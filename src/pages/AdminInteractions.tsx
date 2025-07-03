@@ -4,54 +4,15 @@ import { MessageCircle, Star, Trash2, Eye, User } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const AdminInteractions = () => {
-  const { user } = useAuth();
-  const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedComment, setSelectedComment] = useState<any>(null);
-
-  if (!user) {
-    navigate('/auth');
-    return null;
-  }
-
-  // Check if user is admin
-  const { data: userRole } = useQuery({
-    queryKey: ['userRole', user.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .eq('role', 'admin')
-        .maybeSingle();
-      
-      if (error) throw error;
-      return data;
-    }
-  });
-
-  if (userRole === null) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-indigo-900 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl text-white mb-4">Acesso Negado</h1>
-          <p className="text-gray-300 mb-4">Você precisa ser administrador para acessar esta página.</p>
-          <Button onClick={() => navigate('/')} className="bg-gradient-to-r from-purple-600 to-blue-600">
-            Voltar ao Início
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   // Fetch all comments with game and user info
   const { data: allComments = [] } = useQuery({
@@ -189,7 +150,7 @@ const AdminInteractions = () => {
             Gerenciar Interações
           </h1>
           <p className="text-gray-300">
-            Gerencie comentários e avaliações dos usuários
+            Área restrita para gerenciar comentários e avaliações dos usuários
           </p>
         </div>
 
