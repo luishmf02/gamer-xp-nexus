@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import Games from "./pages/Games";
 import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
+import AdminInteractions from "./pages/AdminInteractions";
 import Auth from "./pages/Auth";
 import GameDetails from "./pages/GameDetails";
 import NotFound from "./pages/NotFound";
@@ -31,6 +32,7 @@ const App = () => (
               <Route path="/games/:id" element={<GameDetails />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/admin" element={<Admin />} />
+              <Route path="/admin/interactions" element={<AdminInteractions />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

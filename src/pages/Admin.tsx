@@ -1,6 +1,5 @@
-
 import { useState } from 'react';
-import { Plus, Edit, Trash2, BarChart3, Users, Gamepad2 } from 'lucide-react';
+import { Plus, Edit, Trash2, BarChart3, Users, Gamepad2, MessageCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import AdminChart from '@/components/AdminChart';
 
 const Admin = () => {
   const { user } = useAuth();
@@ -177,11 +177,20 @@ const Admin = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-indigo-900">
       <div className="container mx-auto px-4 py-8">
-        {/* Header */}
+        {/* Header with Navigation */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">
-            Painel Administrativo
-          </h1>
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-4xl font-bold text-white">
+              Painel Administrativo
+            </h1>
+            <Button
+              onClick={() => navigate('/admin/interactions')}
+              className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+            >
+              <MessageCircle className="w-4 h-4 mr-2" />
+              Gerenciar Interações
+            </Button>
+          </div>
           <p className="text-gray-300">
             Gerencie jogos, usuários e conteúdo da Loja Gamer XP
           </p>
@@ -239,6 +248,9 @@ const Admin = () => {
             </Card>
           </div>
         )}
+
+        {/* Charts Section */}
+        <AdminChart />
 
         {/* Games Management */}
         <Card className="bg-gray-800/50 border-gray-700">

@@ -9,12 +9,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff, Gamepad2 } from 'lucide-react';
+import PasswordRecovery from '@/components/PasswordRecovery';
 
 const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showRecovery, setShowRecovery] = useState(false);
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -23,6 +25,14 @@ const Auth = () => {
   if (user) {
     navigate('/');
     return null;
+  }
+
+  if (showRecovery) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
+        <PasswordRecovery onBack={() => setShowRecovery(false)} />
+      </div>
+    );
   }
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -136,6 +146,15 @@ const Auth = () => {
                   className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                 >
                   {loading ? 'Entrando...' : 'Entrar'}
+                </Button>
+                
+                <Button
+                  type="button"
+                  variant="link"
+                  onClick={() => setShowRecovery(true)}
+                  className="w-full text-purple-400 hover:text-purple-300"
+                >
+                  Esqueceu a senha?
                 </Button>
               </form>
             </TabsContent>
